@@ -1,0 +1,8 @@
+APP_NAME="secure"
+APP_VERSION="1.0.0"
+APP_PORTS="18443/tcp"
+APP_IMAGES="sc2-secure-httpd-1.0.tgz"
+# services that get SC2-issued TLS certs mounted at /run/sc2/tls
+APP_TLS="web"
+APP_PKI="web"
+APP_DESC="Secure web application (Apache, https on port 18443)"

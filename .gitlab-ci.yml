@@ -1,0 +1,79 @@
+# SC2 build pipeline (GitLab CI).
+#
+# fetch  -> pull RPMs/images/artifacts declared in sc2/build.conf (work profile)
+# build  -> package the tree into sc2/dist/sc2-<ver>-x86_64.tgz
+# publish-> upload the bundle to this project's generic Package Registry (on tags)
+#
+# The project source lives under sc2/ in this repo, so every job cd's into it.
+# Requires a runner that can run containers (podman). Point the fetch step at
+# your internal mirror/registry via the CI/CD variables listed below.
+#
+# Required / useful CI/CD variables (Settings > CI/CD > Variables):
+#   SC2_IMAGE_REGISTRY   internal registry mirroring library/* images
+#   SC2_RPM_MIRROR_BASE  internal yum/dnf mirror base (…/el<major> appended)
+#   SC2_BASEIMG_EL7..10  base images that expose full RHEL repos (optional)
+# CI_JOB_TOKEN is provided automatically and used for package upload/pull.
+
+stages: [fetch, build, publish]
+
+variables:
+  SC2_PROFILE: "work"
+  # Podman inside CI usually needs vfs storage (no fuse device):
+  STORAGE_DRIVER: "vfs"
+
+default:
+  image: quay.io/podman/stable:latest
+  before_script:
+    - cd sc2
+
+fetch:
+  stage: fetch
+  script:
+    - dnf -y install curl tar gzip >/dev/null 2>&1 || true
+    - build/fetch-artifacts.sh
+  artifacts:
+    paths:
+      - sc2/rpms/
+      - sc2/images/
+      - sc2/containers/
+      - sc2/artifacts/
+    expire_in: 1 day
+
+build:
+  stage: build
+  needs: ["fetch"]
+  image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+  before_script:
+    - cd sc2
+  script:
+    - microdnf -y install tar gzip >/dev/null 2>&1 || true
+    - build/build-bundle.sh
+  artifacts:
+    paths:
+      - sc2/dist/*.tgz
+      - sc2/dist/*.sha256
+    expire_in: 1 week
+
+# Publish the built bundle to the project's generic Package Registry.
+# Runs only for tag pipelines (tag the release commit, e.g. `git tag v0.7.0`).
+publish:
+  stage: publish
+  needs: ["build"]
+  image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+  rules:
+    - if: '$CI_COMMIT_TAG'
+  before_script:
+    - cd sc2
+  script:
+    - microdnf -y install curl >/dev/null 2>&1 || true
+    - VER="$(cat VERSION)"
+    - FILE="dist/sc2-${VER}-x86_64.tgz"
+    - test -f "$FILE"
+    - |
+      curl --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --upload-file "$FILE" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/sc2/${VER}/sc2-${VER}-x86_64.tgz"
+    - |
+      curl --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --upload-file "${FILE}.sha256" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/sc2/${VER}/sc2-${VER}-x86_64.tgz.sha256"

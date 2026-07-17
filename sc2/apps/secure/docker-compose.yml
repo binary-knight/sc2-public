@@ -1,0 +1,14 @@
+services:
+  web:
+    image: localhost/sc2/secure-httpd:1.0
+    ports:
+      - "18443:443"
+    volumes:
+      - ./conf/httpd.conf:/usr/local/apache2/conf/httpd.conf:Z
+    restart: unless-stopped
+  probe:
+    image: localhost/sc2/example-busybox:1.0.0
+    command: ["sh","-c","while true; do wget --no-check-certificate -q -O /dev/null https://web/ && echo tls-probe-ok; sleep 60; done"]
+    depends_on:
+      - web
+    restart: unless-stopped

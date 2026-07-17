@@ -1,0 +1,22 @@
+# SC2 example stack: a tiny web server plus a probe container, to exercise
+# image loading, inter-container networking, persistent volumes, published
+# ports and restart policy.
+services:
+  web:
+    image: localhost/sc2/example-busybox:1.0.0
+    command: ["sh", "-c", "echo 'SC2 example app is running' > /www/index.html && exec httpd -f -p 8080 -h /www"]
+    ports:
+      - "18080:8080"
+    volumes:
+      - webdata:/www
+    restart: unless-stopped
+
+  probe:
+    image: localhost/sc2/example-busybox:1.0.0
+    command: ["sh", "-c", "while true; do wget -q -O /dev/null http://web:8080/ && echo probe-ok; sleep 60; done"]
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  webdata: {}

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#
+# SC2 - Simple Container Carrier
+# Offline container deployment for RHEL 7 / 8 / 9 / 10 (x86_64).
+#
+# Pure bash. No python, no perl, no internet. Must run on bash 4.2 (RHEL 7).
+#
+set -u
+
+SC2_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SC2_ROOT
+
+for _lib in common detect preflight rpm runtime compose orchestrator certs firewall apps bundle support tui cli; do
+    # shellcheck source=/dev/null
+    . "$SC2_ROOT/lib/${_lib}.sh"
+done
+unset _lib
+
+cli_main "$@"

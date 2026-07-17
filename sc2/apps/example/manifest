@@ -1,0 +1,7 @@
+# SC2 application manifest (bash-sourceable, no executable logic)
+APP_NAME="example"
+APP_VERSION="1.0.0"
+# space-separated host ports to open, port/proto
+APP_PORTS="18080/tcp"
+# space-separated image archives under images/ that this app needs
+APP_IMAGES="sc2-example-busybox-1.0.0.tgz"
